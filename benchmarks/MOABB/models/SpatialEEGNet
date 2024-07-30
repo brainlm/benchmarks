@@ -7,10 +7,35 @@ Authors
 """
 
 import torch
+import torch.nn as nn
 import speechbrain as sb
 
 
-class EEGNet(torch.nn.Module):
+class SpatialFocus(nn.Module):
+    def __init__(self, projection_dim, position_dim=3, tau=1.0, sigma=0.0):
+        super().__init__()
+        self.projection_dim = projection_dim
+        self.position_dim = position_dim
+        self.tau = tau
+        self.sigma = sigma
+
+        self.similarity_module = nn.Sequential(
+            nn.Linear(position_dim, projection_dim),
+            nn.ELU(),
+            nn.Linear(projection_dim, projection_dim),
+        )
+        self.softmax = nn.Softmax(dim=-2)
+
+    def forward(self, x: torch.Tensor, positions: torch.Tensor):
+        if self.training and self.sigma > 0:
+            positions = positions + torch.randn_like(positions) * self.sigma
+        weights = self.similarity_module(positions)
+        weights = self.softmax(weights / self.tau)
+        x = torch.einsum("...cf, cd -> ...df", x, weights)
+        return x
+
+
+class SpatialEEGNet(nn.Module):
     """EEGNet.
 
     Arguments
@@ -76,15 +101,15 @@ class EEGNet(torch.nn.Module):
         if input_shape is None:
             raise ValueError("Must specify input_shape")
         if activation_type == "gelu":
-            activation = torch.nn.GELU()
+            activation = nn.GELU()
         elif activation_type == "elu":
-            activation = torch.nn.ELU()
+            activation = nn.ELU()
         elif activation_type == "relu":
-            activation = torch.nn.ReLU()
+            activation = nn.ReLU()
         elif activation_type == "leaky_relu":
-            activation = torch.nn.LeakyReLU()
+            activation = nn.LeakyReLU()
         elif activation_type == "prelu":
-            activation = torch.nn.PReLU()
+            activation = nn.PReLU()
         else:
             raise ValueError("Wrong hidden activation function")
         self.default_sf = 128  # sampling rate of the original publication (Hz)
@@ -92,7 +117,7 @@ class EEGNet(torch.nn.Module):
         C = input_shape[2]
 
         # CONVOLUTIONAL MODULE
-        self.temporal_frontend = torch.nn.Sequential()
+        self.temporal_frontend = nn.Sequential()
         # Temporal convolution
         self.temporal_frontend.add_module(
             "conv_0",
@@ -115,7 +140,7 @@ class EEGNet(torch.nn.Module):
             ),
         )
         self.spatial_focus = spatial_focus
-        self.conv_module = torch.nn.Sequential()
+        self.conv_module = nn.Sequential()
         # Spatial depthwise convolution
         cnn_spatial_kernels = (
             cnn_spatial_depth_multiplier * cnn_temporal_kernels
@@ -151,7 +176,7 @@ class EEGNet(torch.nn.Module):
                 pool_axis=[1, 2],
             ),
         )
-        self.conv_module.add_module("dropout_1", torch.nn.Dropout(p=dropout))
+        self.conv_module.add_module("dropout_1", nn.Dropout(p=dropout))
 
         # Temporal separable convolution
         cnn_septemporal_kernels = (
@@ -203,21 +228,19 @@ class EEGNet(torch.nn.Module):
                 pool_axis=[1, 2],
             ),
         )
-        self.conv_module.add_module("dropout_3", torch.nn.Dropout(p=dropout))
+        self.conv_module.add_module("dropout_3", nn.Dropout(p=dropout))
 
-        self.encoder = torch.nn.Sequential(
-            self.temporal_frontend,
-            self.spatial_focus,
-            self.conv_module
+        self.encoder = nn.Sequential(
+            self.temporal_frontend, self.spatial_focus, self.conv_module
         )
 
         # Shape of intermediate feature maps
         dense_input_size = self._num_flat_features(input_shape)
         # DENSE MODULE
-        self.dense_module = torch.nn.Sequential()
+        self.dense_module = nn.Sequential()
         self.dense_module.add_module(
             "flatten",
-            torch.nn.Flatten(),
+            nn.Flatten(),
         )
         self.dense_module.add_module(
             "fc_out",
@@ -227,7 +250,7 @@ class EEGNet(torch.nn.Module):
                 max_norm=dense_max_norm,
             ),
         )
-        self.dense_module.add_module("act_out", torch.nn.LogSoftmax(dim=1))
+        self.dense_module.add_module("act_out", nn.LogSoftmax(dim=1))
 
     def _num_flat_features(self, input_shape):
         """Returns the number of flattened features from a tensor.
