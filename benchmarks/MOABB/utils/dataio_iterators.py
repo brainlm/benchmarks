@@ -20,11 +20,19 @@ from typing import Dict, List, Optional, Protocol, Tuple, TypedDict
 import numpy as np
 import pandas as pd
 import torch
-from moabb.datasets.base import BaseDataset as MOABBDataset
-from torch.utils.data import DataLoader, TensorDataset
 import torch_geometric.data
 import torch_geometric.loader
+from moabb.datasets.base import BaseDataset as MOABBDataset
+from torch.utils.data import DataLoader, IterableDataset, TensorDataset
 from utils.prepare import prepare_data
+
+
+class _IterableDatasetFromGenerator(IterableDataset):
+    def __init__(self, gen):
+        self.gen = gen
+
+    def __iter__(self):
+        return iter(self.gen)
 
 
 def get_idx_train_valid_classbalanced(idx_train, valid_ratio, y):
@@ -150,6 +158,7 @@ class _SplitDataloaders(TypedDict):
     ch_names: List[str]
     ch_positions: np.ndarray
     adjacency_mtx: np.ndarray
+    max_T: int
 
 
 XYSplits = namedtuple(
@@ -356,6 +365,7 @@ class BaseDataIOIterator(DataLoaderFactory, abc.ABC):
             ch_names=ch_names,
             ch_positions=ch_positions,
             adjacency_mtx=adjacency_mtx,
+            max_T=max(x_train.shape[1], x_valid.shape[1], x_test.shape[1]),
         )
 
         tail_path = self.get_tail_path(subject, target_data_dict.get("session"))
@@ -453,7 +463,6 @@ class AsGraph(DataLoaderFactory):
                 datasets[key],
                 edge_list=edge_list,
                 ch_positions=torch.from_numpy(datasets["ch_positions"]),
-                shuffle=(key == "train"),
             )
 
         return tail_path, datasets
@@ -463,20 +472,22 @@ class AsGraph(DataLoaderFactory):
         dataloader: DataLoader,
         edge_list: torch.Tensor,
         ch_positions: torch.Tensor,
-        shuffle: bool = False,
     ) -> torch_geometric.loader.DataLoader:
-        dataset = [
+        dataset = _IterableDatasetFromGenerator(
             # Transpose T, C -> C, T
             torch_geometric.data.Data(
-                x=x.transpose(0, 1), y=y, edge_index=edge_list, pos=ch_positions
+                x=x.transpose(0, 1),
+                y=y,
+                edge_index=edge_list,
+                pos=ch_positions,
             )
             for x, y in dataloader.dataset
-        ]
+        )
         return torch_geometric.loader.DataLoader(
             dataset,
             batch_size=dataloader.batch_size,
             pin_memory=dataloader.pin_memory,
-            shuffle=shuffle,
+            shuffle=False,
         )
 
 
