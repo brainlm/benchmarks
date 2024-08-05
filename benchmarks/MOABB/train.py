@@ -27,6 +27,7 @@ import yaml
 
 import wandb
 import datetime
+import uuid
 
 class MOABBBrain(sb.Brain):
     def init_model(self, model):
@@ -412,7 +413,17 @@ def load_hparams_and_dataset_iterators(hparams_file, run_opts, overrides):
     # loading hparams for the each training and evaluation processes
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
-    hparams["exp_dir"] = os.path.join(hparams["output_folder"], tail_path)
+
+    if hparams["sweep_run"]:
+        # Generate a random identifier
+        unique_output_folder = os.path.join(
+            hparams["output_folder"],
+            f"{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid.uuid4())}",
+            tail_path,
+        )
+        hparams["exp_dir"] = unique_output_folder
+    else:
+        hparams["exp_dir"] = os.path.join(hparams["output_folder"], tail_path)
 
     # creating experiment directory
     sb.create_experiment_directory(
