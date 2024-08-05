@@ -139,15 +139,20 @@ class STGNN(torch.nn.Module):
 
         # Apply temporal convolutions
         x = self.temporal_frontend(x).squeeze()  # (N, 1, T, 1) --> (N, D, T')
+        
         # Add positional encoding
         pos_encoding = self.pos_encoder(graph.pos).unsqueeze(-1)  # (N, 3) ---> (N, D, 1)
         x = x + pos_encoding  # (N, D, T')
+
         # Apply GNN message passing on every T step
         x = self.spatial_gnn(x=x, edge_index=graph.edge_index)  # (N, T', D')
+        
         # Graph level pooling
         x = self.graph_pooler(x, graph.batch, positions=graph.pos)  # (B, D', T', 1)
+        
         # Apply spatio-temporal conv module
         x = self.conv_module(x)
+        
         # flatten + dense
         x = self.flatten(x)  # (B, -1)
         x = self.dense_module(x)  # (B, classes)

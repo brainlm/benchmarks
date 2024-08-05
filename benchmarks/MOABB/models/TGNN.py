@@ -71,6 +71,7 @@ class TGNN(torch.nn.Module):
         embed_dim=768,
         dense_n_neurons=4,
         activation_type="relu",
+        late_fusion=False, 
     ):
         super().__init__()
         if input_shape is None:
@@ -84,6 +85,7 @@ class TGNN(torch.nn.Module):
 
         self.T = input_shape[1]
         self.graph_pool_type = graph_pool_type
+        self.late_fusion = late_fusion
 
         # Temporal convolutional module
         self.temporal_conv_module = nn.Sequential(
@@ -151,7 +153,9 @@ class TGNN(torch.nn.Module):
         x = x + pos_encoding  # (N, D, T')
 
         # Apply GNN message passing on every T step
-        x = self.spatial_gnn(x, graph.edge_index)  # (N, T', D')
+        if not self.late_fusion:
+            x = self.spatial_gnn(x, graph.edge_index)  # (N, T', D')
+        
         # Graph level pooling
         x = self.graph_pooler(x, graph.batch, positions=graph.pos)  # (B, T', D')
 

@@ -93,10 +93,11 @@ cnn_kernels: [64, 128, 256]
 cnn_kernelsize: [61, 51, 33]
 cnn_pool: [4, 4]
 cnn_pool_type: 'avg'
-graph_pool_type: "attention"
+graph_pool_type: "avg"
 dropout: 0.2
 activation_type: 'elu'
 embed_dim: 256
+late_fusion: True
 model: !new:models.TGNN.TGNN
     input_shape: !ref <input_shape>
     cnn_kernels: !ref <cnn_kernels>
@@ -108,3 +109,4 @@ model: !new:models.TGNN.TGNN
     embed_dim: !ref <embed_dim>
     dropout: !ref <dropout>
     dense_n_neurons: !ref <n_classes>
+    late_fusion: !ref <late_fusion>

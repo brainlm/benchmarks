@@ -82,7 +82,7 @@ normalize: !name:speechbrain.processing.signal_processing.mean_std_norm
 
 # WEIGHTS AND BIASES Configuration
 project: "BNCI2014001"
-prefix_name: 'TGNN'
+prefix_name: 'STGNN'
 mode: "disabled"
 entity: "neuro-gflow"
 sweep_run: False # to indicate if you are running sweeps or normal wandb runs
