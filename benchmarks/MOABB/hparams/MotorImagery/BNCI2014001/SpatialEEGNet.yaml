@@ -37,7 +37,6 @@ tmax: 4.0 # @orion_step1: --tmax~"uniform(1.0, 4.0, precision=2)"
 n_steps_channel_selection: null
 T: !apply:math.ceil
   - !ref <sample_rate> * (<tmax> - <tmin>)
-C: 22
 # We here specify how to perfom test:
 # - If test_with: 'last' we perform test with the latest model.
 # - if test_with: 'best, we perform test with the best model (according to the metric specified in test_key)
@@ -123,6 +122,7 @@ augment: !new:speechbrain.augment.augmenter.Augmenter
   max_augmentations: 4
   augmentations:
     [!ref <cutcat>, !ref <rand_amp>, !ref <time_shift>, !ref <add_noise_white>]
+position_noise_sigma: 0 # @orion_step1: --position_noise_sigma~"uniform(0.0, 0.1, precision=4)"
 
 # DATA NORMALIZATION
 dims_to_normalize: 1 # 1 (time) or 2 (EEG channels)
@@ -131,7 +131,6 @@ normalize: !name:speechbrain.processing.signal_processing.mean_std_norm
 # MODEL
 projection_dim: 22 # @orion_step1: --projection_dim~"uniform(4, 44, discrete=True)"
 spatial_focus_tau: 0.3333 # @orion_step1: --spatial_focus_tau~"uniform(0.01, 1.0, precision=4)"
-spatial_focus_sigma: 0 # @orion_step1: --spatial_focus_sigma~"uniform(0.0, 0.1, precision=4)"
 
 input_shape: [null, !ref <T>, !ref <projection_dim>, null]
 cnn_temporal_kernels: 61 # @orion_step1: --cnn_temporal_kernels~"uniform(32, 72,discrete=True)"
@@ -173,7 +172,6 @@ model: !new:models.SpatialEEGNet.SpatialEEGNet
   spatial_focus: !new:models.SpatialEEGNet.SpatialFocus
       projection_dim: !ref <projection_dim>
       position_dim: 3
-      sigma: !ref <spatial_focus_sigma>
       tau: !ref <spatial_focus_tau>
   dense_max_norm: !ref <dense_max_norm>
   dropout: !ref <dropout>
