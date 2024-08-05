@@ -47,7 +47,7 @@ cm: !name:sklearn.metrics.confusion_matrix
 metrics:
     f1: !ref <f1>
     acc: !ref <acc>
-    cm: !ref <cm>
+    # cm: !ref <cm>
 # TRAINING HPARS
 n_train_examples: 100  # it will be replaced in the train script
 # checkpoints to average
@@ -119,6 +119,13 @@ augment: !new:speechbrain.augment.augmenter.Augmenter
         !ref <rand_amp>,
         !ref <time_shift>,
         !ref <add_noise_white>]
+
+# WEIGHTS AND BIASES Configuration
+project: "Lee2019_MI"
+prefix_name: 'ShallowNet'
+mode: "disabled"
+entity: "neuro-gflow"
+sweep_run: False # to indicate if you are running sweeps or normal wandb runs
 
 # DATA NORMALIZATION
 dims_to_normalize: 1 # 1 (time) or 2 (EEG channels)
