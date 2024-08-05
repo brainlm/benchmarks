@@ -201,7 +201,7 @@ class MOABBBrain(sb.Brain):
 
             elif stage == sb.Stage.TEST:
                 # Log final test metrics to wandb
-                wandb.log({**self.last_eval_stats})
+                wandb.log({"test_loss": self.last_eval_stats['loss'], "test_acc": self.last_eval_stats['acc'], "test_f1": self.last_eval_stats['f1']})
                 self.hparams.train_logger.log_stats(
                     stats_meta={
                         "epoch loaded": self.hparams.epoch_counter.current
