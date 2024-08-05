@@ -120,6 +120,13 @@ augment: !new:speechbrain.augment.augmenter.Augmenter
         !ref <time_shift>,
         !ref <add_noise_white>]
 
+# WEIGHTS AND BIASES Configuration
+project: "BNCI2015001"
+prefix_name: 'EEGNet'
+mode: "disabled"
+entity: "neuro-gflow"
+sweep_run: False # to indicate if you are running sweeps or normal wandb runs
+
 # DATA NORMALIZATION
 dims_to_normalize: 1 # 1 (time) or 2 (EEG channels)
 normalize: !name:speechbrain.processing.signal_processing.mean_std_norm

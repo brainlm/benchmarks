@@ -25,6 +25,8 @@ from torchinfo import summary
 import speechbrain as sb
 import yaml
 
+import wandb
+import datetime
 
 class MOABBBrain(sb.Brain):
     def init_model(self, model):
@@ -83,6 +85,15 @@ class MOABBBrain(sb.Brain):
 
     def on_fit_start(self,):
         """Gets called at the beginning of ``fit()``"""
+        # Initialize wandb
+        run_name = f"{self.hparams.prefix_name}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        wandb.init(
+            project=self.hparams.project,
+            name=run_name,
+            mode=self.hparams.mode,
+            entity=self.hparams.entity,
+        )
+
         self.init_model(self.hparams.model)
         self.init_optimizers()
         in_shape = (
@@ -137,6 +148,14 @@ class MOABBBrain(sb.Brain):
                         train_stats={"loss": self.train_loss},
                         valid_stats=self.last_eval_stats,
                     )
+                # Log validation stats to wandb
+                wandb.log(
+                    {
+                        **self.last_eval_stats,
+                        "lr": old_lr,
+                        "train_loss": self.train_loss,
+                    }
+                )
 
                 if epoch == 1:
                     self.best_eval_stats = self.last_eval_stats
@@ -181,6 +200,8 @@ class MOABBBrain(sb.Brain):
                     )
 
             elif stage == sb.Stage.TEST:
+                # Log final test metrics to wandb
+                wandb.log({**self.last_eval_stats})
                 self.hparams.train_logger.log_stats(
                     stats_meta={
                         "epoch loaded": self.hparams.epoch_counter.current
