@@ -53,8 +53,10 @@ class MOABBBrain(sb.Brain):
 
         if hasattr(self.hparams, "pos_normalize"):
             if self.hparams.pos_normalize is True:
-                inputs.pos = (inputs.pos - inputs.pos.min(dim=0)) / (
-                    inputs.pos.max(dim=0) - inputs.pos.min(dim=0)
+                inputs.pos = 2 * (
+                    (inputs.pos - inputs.pos.min(dim=0))
+                    / (inputs.pos.max(dim=0) - inputs.pos.min(dim=0))
+                    - 0.5
                 )
             elif self.hparams.pos_normalize is not False:
                 inputs.pos = self.hparams.pos_normalize(inputs.pos)
@@ -284,16 +286,6 @@ def run_experiment(hparams, run_opts, datasets):
     )
     logger = logging.getLogger(__name__)
     logger.info("Experiment directory: {0}".format(hparams["exp_dir"]))
-
-    ch_positions = datasets["ch_positions"]
-    hparams["ch_positions"] = torch.from_numpy(
-        2
-        * (
-            (ch_positions - ch_positions.min(0))
-            / (ch_positions.max(0) - ch_positions.min(0))
-            - 0.5
-        )
-    )
 
     brain = MOABBBrain(
         modules={"model": hparams["model"]},

@@ -159,9 +159,9 @@ class BaseGraphData(abc.ABC):
             datasets = [datasets]
 
         self.datasets = datasets
-        if not isinstance(target_subjects, Iterable):
+        if not isinstance(target_subjects, (list, tuple)):
             target_subjects = [target_subjects]
-        if not isinstance(target_sessions, Iterable):
+        if not isinstance(target_sessions, (list, tuple)):
             target_sessions = [target_sessions]
         self.target_subjects = target_subjects
         self.target_sessions = target_sessions
