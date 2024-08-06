@@ -169,7 +169,6 @@ class SpatialEEGNet(nn.Module):
                 input_size=cnn_temporal_kernels, momentum=0.01, affine=True,
             ),
         )
-        self.temporal_frontend = node_wise(self.temporal_frontend)
         self.spatial_focus = spatial_focus
         self.conv_module = nn.Sequential()
         # Spatial depthwise convolution
@@ -304,7 +303,7 @@ class SpatialEEGNet(nn.Module):
             Input to convolve. 4d tensors are expected.
         """
         # x is initially (b*c, t)
-        x = self.temporal_frontend(x)  # returns as Data (b*c, t', d)
+        x = node_wise(self.temporal_frontend)(x)  # returns as Data (b*c, t', d)
         x = self.spatial_focus(x)  # returns as Tensor (b, t', c', d)
         x = self.conv_module(x)  # returns as Tensor (b, t'', 1, d')
         x = self.dense_module(x)
