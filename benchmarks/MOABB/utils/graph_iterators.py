@@ -13,6 +13,7 @@ from torch.nn import functional as F
 from torch.utils.data import ChainDataset, IterableDataset
 from torch_geometric.data import Batch, Data
 from torch_geometric.loader import DataLoader
+from mne.utils.config import set_config, get_config
 
 
 def rename_subjects(dataset, subjects):
@@ -101,7 +102,7 @@ class BaseGraphData(abc.ABC):
     def __init__(
         self,
         datasets,
-        target_subjects,
+        target_subjects=None,
         target_sessions=None,
         valid_ratio=0.2,
         **paradigm_kwargs,
@@ -149,7 +150,23 @@ class BaseGraphData(abc.ABC):
                 d.x = F.pad(d.x, (0, max_T - T))
         return data
 
-    def prepare(self, batch_size=1, exclude_keys=None):
+    def prepare(
+        self,
+        data_folder=None,
+        cached_data_folder=None,
+        batch_size=1,
+        exclude_keys=None,
+    ):
+        if data_folder is not None:
+            mne_cfg = get_config()
+            for a in mne_cfg.keys():
+                if (
+                    mne_cfg[a] != data_folder
+                ):  # reducing writes on mne cfg file to avoid conflicts in parallel trainings
+                    set_config(a, data_folder)
+            if cached_data_folder is None:
+                cached_data_folder = data_folder
+
         data = list(self.data)
         min_C, max_C, min_T, max_T = self.data_statistics(data)
         data = self.pad_data(data, max_T)
