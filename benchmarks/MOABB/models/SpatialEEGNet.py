@@ -67,7 +67,7 @@ class SpatialFocus(nn.Module):
         return x
 
 
-class EEGNet(nn.Module):
+class SpatialEEGNet(nn.Module):
     """EEGNet.
 
     Arguments
