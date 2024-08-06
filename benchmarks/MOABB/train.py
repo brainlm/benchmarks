@@ -261,7 +261,7 @@ class MOABBBrain(sb.Brain):
 
 def run_experiment(hparams, run_opts, datasets):
     """This function performs a single training (e.g., single cross-validation fold)"""
-    ys = Batch.from_data_list(datasets["train"].dataset)
+    ys = Batch.from_data_list(datasets["train"].dataset).y
 
     idx_examples = np.arange(ys.shape[0])
     n_examples_perclass = [
