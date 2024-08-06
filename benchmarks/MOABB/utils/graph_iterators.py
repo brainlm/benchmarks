@@ -80,7 +80,7 @@ class NodeDrop(nn.Module):
         del x.edge_index
         x = x.to_data_list()
         for d in x:
-            mask = torch.randperm(d.x.shape[0], device=d.x.device)[:self.k]
+            mask = torch.randperm(d.x.shape[0], device=d.x.device)[: self.k]
             d.x = d.x[mask, :]
             d.pos = d.pos[mask, :]
 
@@ -130,7 +130,7 @@ class AsGeometricData(IterableDataset):
         for x, y, (_, m) in zip(self.X, self.Y, self.metadata.iterrows()):
             yield Data(
                 x=torch.from_numpy(x).float(),
-                y=self.dataset.event_id[y],
+                y=self.dataset.event_id[y] - 1,
                 edge_index=self.edge_list,
                 pos=self.pos,
                 **m,
