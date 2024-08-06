@@ -10,6 +10,7 @@ Author
 ------
 Davide Borra, 2022
 Mirco Ravanelli, 2023
+Drew Wagner, 2024
 """
 
 import pickle
@@ -20,7 +21,7 @@ from torch.nn import init
 import numpy as np
 import logging
 import sys
-from utils.dataio_iterators import LeaveOneSessionOut, LeaveOneSubjectOut
+from utils.graph_iterators import LeaveOneSessionOut, LeaveOneSubjectOut
 from torchinfo import summary
 import speechbrain as sb
 import yaml
@@ -39,29 +40,28 @@ class MOABBBrain(sb.Brain):
                 if mod.bias is not None:
                     init.constant_(mod.bias, 0)
 
-        # foo = torch.load('foo.torch')
-        # model.spatial_focus.similarity_module.load_state_dict(foo)
-
     def compute_forward(self, batch, stage):
         "Given an input batch it computes the model output."
-        inputs = batch[0].to(self.device)
+        inputs = batch.to(self.device)
 
         # Perform data augmentation
         if stage == sb.Stage.TRAIN and hasattr(self.hparams, "augment"):
-            inputs, _ = self.hparams.augment(
-                inputs.squeeze(3),
-                lengths=torch.ones(inputs.shape[0], device=self.device),
-            )
-            inputs = inputs.unsqueeze(3)
+            inputs.x, _ = self.hparams.augment(inputs.x.transpose(0, 1))
+
+        if hasattr(self.hparams, "pos_normalize"):
+            inputs.pos = self.hparams.pos_normalize(inputs.pos)
+
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "graph_augment"):
+            inputs = self.hparams.graph_augment(inputs)
 
         # Normalization
         if hasattr(self.hparams, "normalize"):
-            inputs = self.hparams.normalize(inputs)
-        return self.modules.model(inputs, self.hparams.ch_positions)
+            inputs.x = self.hparams.normalize(inputs.x)
+        return self.modules.model(inputs)
 
     def compute_objectives(self, predictions, batch, stage):
         "Given the network predictions and targets computes the loss."
-        targets = batch[1].to(self.device)
+        targets = batch.y.to(self.device)
 
         # Target augmentation
         N_augments = int(predictions.shape[0] / targets.shape[0])
@@ -86,9 +86,6 @@ class MOABBBrain(sb.Brain):
 
     def on_fit_start(self,):
         """Gets called at the beginning of ``fit()``"""
-        self.hparams.ch_positions = self.hparams.ch_positions.float().to(
-            self.device
-        )
         self.init_model(self.hparams.model)
         self.init_optimizers()
         in_shape = (
@@ -191,12 +188,16 @@ class MOABBBrain(sb.Brain):
                     stats_meta={
                         "epoch loaded": self.hparams.epoch_counter.current
                     },
-                    test_stats=self.last_eval_stats
-                    if not getattr(self, "log_test_as_valid", False)
-                    else None,
-                    valid_stats=self.last_eval_stats
-                    if getattr(self, "log_test_as_valid", False)
-                    else None,
+                    test_stats=(
+                        self.last_eval_stats
+                        if not getattr(self, "log_test_as_valid", False)
+                        else None
+                    ),
+                    valid_stats=(
+                        self.last_eval_stats
+                        if getattr(self, "log_test_as_valid", False)
+                        else None
+                    ),
                 )
                 # save the averaged checkpoint at the end of the evaluation stage
                 # delete the rest of the intermediate checkpoints
@@ -234,7 +235,7 @@ class MOABBBrain(sb.Brain):
         self, last_eval_stats, best_eval_stats, keys,
     ):
         """Checks if the current model is the best according at least to
-        one of the monitored metrics. """
+        one of the monitored metrics."""
         is_best = False
         for key in keys:
             if key == "loss":
@@ -275,25 +276,15 @@ def run_experiment(hparams, run_opts, datasets):
     )
     logger = logging.getLogger(__name__)
     logger.info("Experiment directory: {0}".format(hparams["exp_dir"]))
-    logger.info(
-        "Input shape: {0}".format(
-            datasets["train"].dataset.tensors[0].shape[1:]
-        )
-    )
-    logger.info(
-        "Training set avg value: {0}".format(
-            datasets["train"].dataset.tensors[0].mean()
-        )
-    )
-    datasets_summary = "Number of examples: {0} (training), {1} (validation), {2} (test)".format(
-        datasets["train"].dataset.tensors[0].shape[0],
-        datasets["valid"].dataset.tensors[0].shape[0],
-        datasets["test"].dataset.tensors[0].shape[0],
-    )
-    logger.info(datasets_summary)
+
     ch_positions = datasets["ch_positions"]
     hparams["ch_positions"] = torch.from_numpy(
-        2 * ((ch_positions - ch_positions.min(0)) / (ch_positions.max(0) - ch_positions.min(0)) - 0.5)
+        2
+        * (
+            (ch_positions - ch_positions.min(0))
+            / (ch_positions.max(0) - ch_positions.min(0))
+            - 0.5
+        )
     )
 
     brain = MOABBBrain(
@@ -349,36 +340,44 @@ def prepare_dataset_iterators(hparams):
     # defining data iterator to use
     print("Prepare dataset iterators...")
     if hparams["data_iterator_name"] == "leave-one-session-out":
-        data_iterator = LeaveOneSessionOut(
-            seed=hparams["seed"]
-        )  # within-subject and cross-session
+        DataIterator = LeaveOneSessionOut
     elif hparams["data_iterator_name"] == "leave-one-subject-out":
-        data_iterator = LeaveOneSubjectOut(
-            seed=hparams["seed"]
-        )  # cross-subject and cross-session
+        DataIterator = LeaveOneSubjectOut
     else:
         raise ValueError(
             "Unknown data_iterator_name: %s" % hparams["data_iterator_name"]
         )
 
-    tail_path, datasets = data_iterator.prepare(
-        data_folder=hparams["data_folder"],
-        dataset=hparams["dataset"],
-        cached_data_folder=hparams["cached_data_folder"],
-        batch_size=hparams["batch_size"],
-        valid_ratio=hparams["valid_ratio"],
-        target_subject_idx=hparams["target_subject_idx"],
-        target_session_idx=hparams["target_session_idx"],
-        events_to_load=hparams["events_to_load"],
-        original_sample_rate=hparams["original_sample_rate"],
+    data_iterator = DataIterator(
+        datasets=hparams["datasets"],
         sample_rate=hparams["sample_rate"],
         fmin=hparams["fmin"],
         fmax=hparams["fmax"],
         tmin=hparams["tmin"],
         tmax=hparams["tmax"],
-        save_prepared_dataset=hparams["save_prepared_dataset"],
-        n_steps_channel_selection=hparams["n_steps_channel_selection"],
+        events_to_load=hparams["events_to_load"],
+        valid_ratio=hparams["valid_ratio"],
+        target_subject_idx=hparams["target_subject_idx"],
+        target_session_idx=hparams["target_session_idx"],
     )
+
+    datasets = data_iterator.prepare(
+        data_folder=hparams["data_folder"],
+        cached_data_folder=hparams["cached_data_folder"],
+        batch_size=hparams["batch_size"],
+    )
+
+    tail_path = os.path.join(
+        hparams["data_iterator_name"],
+        "_".join(
+            "sub-{0}".format(str(subject).zfill(3))
+            for subject in data_iterator.target_subjects
+        ),
+    )
+    if data_iterator.target_sessions is not None:
+        tail_path = os.path.join(
+            tail_path, "_".join(data_iterator.target_sessions)
+        )
     return tail_path, datasets
 
 
@@ -392,9 +391,9 @@ def load_hparams_and_dataset_iterators(hparams_file, run_opts, overrides):
     tail_path, datasets = prepare_dataset_iterators(hparams)
     # override C and T, to be sure that network input shape matches the dataset (e.g., after time cropping or channel sampling)
     overrides.update(
-        T=datasets["train"].dataset.tensors[0].shape[1],
-        C=datasets["train"].dataset.tensors[0].shape[-2],
-        n_train_examples=datasets["train"].dataset.tensors[0].shape[0],
+        T=datasets["T"],
+        C=datasets["C"],
+        n_train_examples=len(datasets["train"].dataset),
     )
 
     # loading hparams for the each training and evaluation processes

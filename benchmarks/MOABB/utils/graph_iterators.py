@@ -1,3 +1,18 @@
+"""
+Graph Data Iterators for MOABB Datasets and Paradigms
+
+This module provides various data iterators tailored for MOABB datasets and paradigms which
+require the electrode position and adjacency data.
+
+Different training strategies have been implemented as distinct data iterators, including:
+- Leave-One-Session-Out
+- Leave-One-Subject-Out
+
+Authors
+------
+Drew Wagner, 2024
+"""
+
 import abc
 import random
 from typing import Iterable
