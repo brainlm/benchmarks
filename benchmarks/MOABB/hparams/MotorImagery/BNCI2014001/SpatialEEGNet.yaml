@@ -115,13 +115,13 @@ add_noise_white: !new:speechbrain.augment.time_domain.AddNoise
 position_noise_sigma: 0 # @orion_step1: --position_noise_sigma~"uniform(0.0, 0.1, precision=4)"
 
 repeat_augment: 1 # @orion_step1: --repeat_augment 0
-graph_augment: !new:torch.nn.Sequential
-  - !new:utils.graph_iterators.PositionNoise
-    sigma: !ref <position_noise_sigma>
-  - !new:utils.graph_iterators.NodeDrop
-    choose_k: !new:scipy.stats._discrete_distns.randint_gen
-      - 4
-      - !ref <C>
+# graph_augment: !new:torch.nn.Sequential
+#   - !new:utils.graph_iterators.PositionNoise
+#     sigma: !ref <position_noise_sigma>
+#   - !new:utils.graph_iterators.NodeDrop
+#     choose_k: !new:scipy.stats._discrete_distns.randint_gen
+#       - 4
+#       - !ref <C>
 augment: !new:speechbrain.augment.augmenter.Augmenter
   parallel_augment: True
   concat_original: True
