@@ -77,15 +77,10 @@ class NodeDrop(nn.Module):
         self.k = choose_k
 
     def forward(self, x):
-        if isinstance(self.k, rv_discrete):
-            k = self.k.rvs()
-        else:
-            k = self.k
-
         del x.edge_index
         x = x.to_data_list()
         for d in x:
-            mask = torch.randperm(d.x.shape[0], device=d.x.device)[:k]
+            mask = torch.randperm(d.x.shape[0], device=d.x.device)[:self.k]
             d.x = d.x[mask, :]
             d.pos = d.pos[mask, :]
 
