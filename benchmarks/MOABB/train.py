@@ -362,8 +362,8 @@ def prepare_dataset_iterators(hparams):
         tmax=hparams["tmax"],
         events_to_load=hparams["events_to_load"],
         valid_ratio=hparams["valid_ratio"],
-        target_subject=hparams["target_subject_idx"],
-        target_session=hparams["target_session_idx"],
+        target_subjects=hparams["target_subject_idx"],
+        target_sessions=hparams["target_session_idx"],
     )
 
     datasets = data_iterator.prepare(
