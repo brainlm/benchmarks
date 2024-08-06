@@ -78,7 +78,7 @@ class NodeDrop(nn.Module):
 
     def forward(self, x):
         if isinstance(self.k, rv_discrete):
-            k = self.k.sample()
+            k = self.k.rvs()
         else:
             k = self.k
 
