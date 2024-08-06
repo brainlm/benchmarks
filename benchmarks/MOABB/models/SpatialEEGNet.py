@@ -1,22 +1,41 @@
-"""EEGNet from https://doi.org/10.1088/1741-2552/aace8c.
-Shallow and lightweight convolutional neural network proposed for a general decoding of single-trial EEG signals.
-It was proposed for P300, error-related negativity, motor execution, motor imagery decoding.
+"""EEGNet adapted to handle variable electrode configurations.
+
+Base EEGNet implementation borrowed from Davide Borra's implementation in Speechbrain/benchmarks:
+
+    EEGNet from https://doi.org/10.1088/1741-2552/aace8c.
+    Shallow and lightweight convolutional neural network proposed for a general decoding of single-trial EEG signals.
+    It was proposed for P300, error-related negativity, motor execution, motor imagery decoding.
 
 Authors
- * Davide Borra, 2021
+ * Drew Wagner, 2024
 """
 
+import speechbrain as sb
 import torch
 import torch.nn as nn
-import speechbrain as sb
+import torch_geometric.utils
+from torch_geometric.data import Data
+
+
+class node_wise(nn.Module):
+    def __init__(self, func):
+        super().__init__()
+        self.func = func
+
+    def forward(self, x: Data):
+        new_x = x.clone()
+        new_x.x = self.func(x.x.unsqueeze(-1).unsqueeze(-1)).squeeze(-2)
+        assert new_x.x.shape[:-1] == x.x.shape, "shape changed"
+        return new_x
 
 
 class SpatialFocus(nn.Module):
-    def __init__(self, projection_dim, position_dim=3, tau=1.0):
+    def __init__(self, projection_dim, position_dim=3, tau=1.0, sigma=0.0):
         super().__init__()
         self.projection_dim = projection_dim
         self.position_dim = position_dim
         self.tau = tau
+        self.sigma = sigma
 
         self.similarity_module = nn.Sequential(
             nn.Linear(position_dim, projection_dim),
@@ -25,14 +44,30 @@ class SpatialFocus(nn.Module):
         )
         self.softmax = nn.Softmax(dim=-2)
 
-    def forward(self, x: torch.Tensor, positions: torch.Tensor):
+    def forward(self, batch: Data):
+        positions = batch.pos
+        x = batch.x
+
+        if self.training and self.sigma > 0:
+            positions = positions + torch.randn_like(positions) * self.sigma
         weights = self.similarity_module(positions)
-        weights = self.softmax(weights / self.tau)
-        x = torch.einsum("...cf, cd -> ...df", x, weights)
+        weights = (
+            torch_geometric.utils.softmax(weights / self.tau, index=batch.batch)
+            .unsqueeze(1)
+            .unsqueeze(-1)
+        )
+        x_weighted = x.unsqueeze(-2) * weights
+        x = torch_geometric.utils.scatter(
+            x_weighted,
+            batch.batch,
+            dim=0,
+            dim_size=batch.batch_size,
+            reduce="sum",
+        )
         return x
 
 
-class SpatialEEGNet(nn.Module):
+class EEGNet(nn.Module):
     """EEGNet.
 
     Arguments
@@ -134,6 +169,7 @@ class SpatialEEGNet(nn.Module):
                 input_size=cnn_temporal_kernels, momentum=0.01, affine=True,
             ),
         )
+        self.temporal_frontend = node_wise(self.temporal_frontend)
         self.spatial_focus = spatial_focus
         self.conv_module = nn.Sequential()
         # Spatial depthwise convolution
@@ -223,10 +259,6 @@ class SpatialEEGNet(nn.Module):
         )
         self.conv_module.add_module("dropout_3", nn.Dropout(p=dropout))
 
-        self.encoder = nn.Sequential(
-            self.temporal_frontend, self.spatial_focus, self.conv_module
-        )
-
         # Shape of intermediate feature maps
         dense_input_size = self._num_flat_features(input_shape)
         # DENSE MODULE
@@ -263,16 +295,18 @@ class SpatialEEGNet(nn.Module):
             num_features *= s
         return num_features
 
-    def forward(self, x, positions=None):
+    def forward(self, x):
         """Returns the output of the model.
 
         Arguments
         ---------
-        x : torch.Tensor (batch, time, EEG channel, channel)
+        x : torch_geometric.Data (batch, time, EEG channel, channel)
             Input to convolve. 4d tensors are expected.
         """
-        if positions is None:
-            positions = torch.zeros((x.shape[-2], 3), device=x.device)
-        x = self.encoder(x)
+        # x is initially (b*c, t)
+        x = self.temporal_frontend(x)  # returns as Data (b*c, t', d)
+        x = self.spatial_focus(x)  # returns as Tensor (b, t', c', d)
+        x = self.conv_module(x)  # returns as Tensor (b, t'', 1, d')
         x = self.dense_module(x)
+
         return x

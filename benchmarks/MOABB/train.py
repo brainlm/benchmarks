@@ -49,7 +49,12 @@ class MOABBBrain(sb.Brain):
             inputs.x, _ = self.hparams.augment(inputs.x.transpose(0, 1))
 
         if hasattr(self.hparams, "pos_normalize"):
-            inputs.pos = self.hparams.pos_normalize(inputs.pos)
+            if self.hparams.pos_normalize is True:
+                inputs.pos = (inputs.pos - inputs.pos.min(dim=0)) / (
+                    inputs.pos.max(dim=0) - inputs.pos.min(dim=0)
+                )
+            elif self.hparams.pos_normalize is not False:
+                inputs.pos = self.hparams.pos_normalize(inputs.pos)
 
         if stage == sb.Stage.TRAIN and hasattr(self.hparams, "graph_augment"):
             inputs = self.hparams.graph_augment(inputs)

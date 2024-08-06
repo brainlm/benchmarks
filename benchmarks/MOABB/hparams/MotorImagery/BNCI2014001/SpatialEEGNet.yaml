@@ -110,8 +110,16 @@ snr_white_high: !ref <snr_white_low> + <snr_white_delta>
 add_noise_white: !new:speechbrain.augment.time_domain.AddNoise
   snr_low: !ref <snr_white_low>
   snr_high: !ref <snr_white_high>
+position_noise_sigma: 0 # @orion_step1: --position_noise_sigma~"uniform(0.0, 0.1, precision=4)"
 
 repeat_augment: 1 # @orion_step1: --repeat_augment 0
+graph_augment: !new:torch.nn.Sequential
+  - !new:utils.graph_iterators.PositionNoise
+    sigma: !ref <position_noise_sigma>
+  - !new:utils.graph_iterators.NodeDrop
+    choose_k: !new:scipy.stats.uniform
+      - 4
+      - !ref <C>
 augment: !new:speechbrain.augment.augmenter.Augmenter
   parallel_augment: True
   concat_original: True
@@ -122,12 +130,13 @@ augment: !new:speechbrain.augment.augmenter.Augmenter
   max_augmentations: 4
   augmentations:
     [!ref <cutcat>, !ref <rand_amp>, !ref <time_shift>, !ref <add_noise_white>]
-position_noise_sigma: 0 # @orion_step1: --position_noise_sigma~"uniform(0.0, 0.1, precision=4)"
 
 # DATA NORMALIZATION
 dims_to_normalize: 1 # 1 (time) or 2 (EEG channels)
 normalize: !name:speechbrain.processing.signal_processing.mean_std_norm
   dims: !ref <dims_to_normalize>
+pos_normalize: True
+
 # MODEL
 projection_dim: 22 # @orion_step1: --projection_dim~"uniform(4, 44, discrete=True)"
 spatial_focus_tau: 0.3333 # @orion_step1: --spatial_focus_tau~"uniform(0.01, 1.0, precision=4)"
@@ -170,10 +179,9 @@ model: !new:models.SpatialEEGNet.SpatialEEGNet
   cnn_pool_type: !ref <cnn_pool_type>
   activation_type: !ref <activation_type>
   spatial_focus: !new:models.SpatialEEGNet.SpatialFocus
-      projection_dim: !ref <projection_dim>
-      position_dim: 3
-      tau: !ref <spatial_focus_tau>
+    projection_dim: !ref <projection_dim>
+    position_dim: 3
+    tau: !ref <spatial_focus_tau>
   dense_max_norm: !ref <dense_max_norm>
   dropout: !ref <dropout>
   dense_n_neurons: !ref <n_classes>
-
