@@ -93,7 +93,7 @@ class MOABBBrain(sb.Brain):
             # From log to linear predictions
             tmp_preds = torch.exp(predictions)
             self.preds.extend(tmp_preds.detach().cpu().numpy())
-            self.targets.extend(batch[1].detach().cpu().numpy())
+            self.targets.extend(batch.y.cpu().numpy())
         else:
             if hasattr(self.hparams, "lr_annealing"):
                 self.hparams.lr_annealing.on_batch_end(self.optimizer)
