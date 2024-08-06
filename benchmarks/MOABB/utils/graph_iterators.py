@@ -20,10 +20,12 @@ from typing import Iterable
 import numpy as np
 import pandas as pd
 import scipy
+from scipy.stats import rv_discrete
 import torch
 from mne import EpochsArray
 from mne.channels import find_ch_adjacency
 from moabb import paradigms
+from torch import nn
 from torch.nn import functional as F
 from torch.utils.data import ChainDataset, IterableDataset
 from torch_geometric.data import Batch, Data
@@ -57,6 +59,37 @@ def _make_paradigm(
     return Paradigm(
         resample=resample, fmin=fmin, fmax=fmax, tmin=tmin, tmax=tmax, **kwargs
     )
+
+
+class PositionNoise(nn.Module):
+    def __init__(self, sigma=1.0):
+        super().__init__()
+        self.sigma = sigma
+
+    def forward(self, x):
+        x.pos = x.pos + torch.randn_like(x.pos) * self.sigma
+        return x
+
+
+class NodeDrop(nn.Module):
+    def __init__(self, choose_k):
+        super().__init__()
+        self.k = choose_k
+
+    def forward(self, x):
+        if isinstance(self.k, rv_discrete):
+            k = self.k.sample()
+        else:
+            k = self.k
+
+        del x.edge_index
+        x = x.to_data_list()
+        for d in x:
+            mask = torch.randperm(d.x.shape[0], device=d.x.device)[:k]
+            d.x = d.x[mask, :]
+            d.pos = d.pos[mask, :]
+
+        return Batch.from_data_list(x)
 
 
 class AsGeometricData(IterableDataset):
