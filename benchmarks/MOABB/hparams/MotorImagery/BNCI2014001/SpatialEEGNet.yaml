@@ -37,6 +37,7 @@ tmax: 4.0 # @orion_step1: --tmax~"uniform(1.0, 4.0, precision=2)"
 n_steps_channel_selection: null
 T: !apply:math.ceil
   - !ref <sample_rate> * (<tmax> - <tmin>)
+C: 22
 # We here specify how to perfom test:
 # - If test_with: 'last' we perform test with the latest model.
 # - if test_with: 'best, we perform test with the best model (according to the metric specified in test_key)
