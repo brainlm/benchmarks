@@ -48,7 +48,10 @@ class MOABBBrain(sb.Brain):
 
         # Perform data augmentation
         if stage == sb.Stage.TRAIN and hasattr(self.hparams, "augment"):
-            inputs.x, _ = self.hparams.augment(inputs.x.transpose(0, 1))
+            inputs.x, _ = self.hparams.augment(
+                inputs.x.transpose(0, 1),
+                lengths=torch.ones(inputs.x.shape[0], device=self.device),
+            )
 
         if hasattr(self.hparams, "pos_normalize"):
             if self.hparams.pos_normalize is True:
@@ -97,11 +100,11 @@ class MOABBBrain(sb.Brain):
         """Gets called at the beginning of ``fit()``"""
         self.init_model(self.hparams.model)
         self.init_optimizers()
-        in_shape = (
-            (1,)
-            + tuple(np.floor(self.hparams.input_shape[1:-1]).astype(int))
-            + (1,)
-        )
+        # in_shape = (
+        #     (1,)
+        #     + tuple(np.floor(self.hparams.input_shape[1:-1]).astype(int))
+        #     + (1,)
+        # )
         # model_summary = summary(
         #     self.hparams.model, input_size=in_shape, device=self.device
         # )
