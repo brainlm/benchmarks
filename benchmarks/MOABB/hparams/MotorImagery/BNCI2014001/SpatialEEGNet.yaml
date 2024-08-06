@@ -119,7 +119,7 @@ graph_augment: !new:torch.nn.Sequential
   - !new:utils.graph_iterators.PositionNoise
     sigma: !ref <position_noise_sigma>
   - !new:utils.graph_iterators.NodeDrop
-    choose_k: !new:scipy.stats._discrete_distns.randint_gen
+    choose_k: !apply:scipy.stats._discrete_distns.randint_gen
       - 4
       - !ref <C>
 # augment: !new:speechbrain.augment.augmenter.Augmenter
