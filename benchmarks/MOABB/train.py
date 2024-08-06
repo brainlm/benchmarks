@@ -396,9 +396,7 @@ def load_hparams_and_dataset_iterators(hparams_file, run_opts, overrides):
     tail_path, datasets = prepare_dataset_iterators(hparams)
     # override C and T, to be sure that network input shape matches the dataset (e.g., after time cropping or channel sampling)
     overrides.update(
-        T=datasets["T"],
-        C=datasets["C"],
-        n_train_examples=len(datasets["train"].dataset),
+        T=datasets["T"], n_train_examples=len(datasets["train"].dataset),
     )
 
     # loading hparams for the each training and evaluation processes
