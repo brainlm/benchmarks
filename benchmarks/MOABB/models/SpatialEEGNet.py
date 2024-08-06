@@ -131,9 +131,7 @@ class SpatialEEGNet(nn.Module):
         self.temporal_frontend.add_module(
             "bnorm_0",
             sb.nnet.normalization.BatchNorm2d(
-                input_size=cnn_temporal_kernels,
-                momentum=0.01,
-                affine=True,
+                input_size=cnn_temporal_kernels, momentum=0.01, affine=True,
             ),
         )
         self.spatial_focus = spatial_focus
@@ -158,9 +156,7 @@ class SpatialEEGNet(nn.Module):
         self.conv_module.add_module(
             "bnorm_1",
             sb.nnet.normalization.BatchNorm2d(
-                input_size=cnn_spatial_kernels,
-                momentum=0.01,
-                affine=True,
+                input_size=cnn_spatial_kernels, momentum=0.01, affine=True,
             ),
         )
         self.conv_module.add_module("act_1", activation)
@@ -236,8 +232,7 @@ class SpatialEEGNet(nn.Module):
         # DENSE MODULE
         self.dense_module = nn.Sequential()
         self.dense_module.add_module(
-            "flatten",
-            nn.Flatten(),
+            "flatten", nn.Flatten(),
         )
         self.dense_module.add_module(
             "fc_out",
