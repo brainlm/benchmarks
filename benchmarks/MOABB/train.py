@@ -13,18 +13,21 @@ Mirco Ravanelli, 2023
 Drew Wagner, 2024
 """
 
-import pickle
+import logging
 import os
+import pickle
+import sys
+
+import numpy as np
+import speechbrain as sb
 import torch
+import yaml
 from hyperpyyaml import load_hyperpyyaml
 from torch.nn import init
-import numpy as np
-import logging
-import sys
-from utils.graph_iterators import LeaveOneSessionOut, LeaveOneSubjectOut
+from torch_geometric.data import Batch
 from torchinfo import summary
-import speechbrain as sb
-import yaml
+
+from utils.graph_iterators import LeaveOneSessionOut, LeaveOneSubjectOut
 
 
 class MOABBBrain(sb.Brain):
@@ -258,11 +261,11 @@ class MOABBBrain(sb.Brain):
 
 def run_experiment(hparams, run_opts, datasets):
     """This function performs a single training (e.g., single cross-validation fold)"""
-    idx_examples = np.arange(datasets["train"].dataset.tensors[0].shape[0])
+    ys = Batch.from_data_list(datasets["train"].dataset)
+
+    idx_examples = np.arange(ys.shape[0])
     n_examples_perclass = [
-        idx_examples[
-            np.where(datasets["train"].dataset.tensors[1] == c)[0]
-        ].shape[0]
+        idx_examples[np.where(ys == c)[0]].shape[0]
         for c in range(hparams["n_classes"])
     ]
     n_examples_perclass = np.array(n_examples_perclass)
