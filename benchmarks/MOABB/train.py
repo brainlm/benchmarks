@@ -56,8 +56,11 @@ class MOABBBrain(sb.Brain):
         if hasattr(self.hparams, "pos_normalize"):
             if self.hparams.pos_normalize is True:
                 inputs.pos = 2 * (
-                    (inputs.pos - inputs.pos.min(dim=0))
-                    / (inputs.pos.max(dim=0) - inputs.pos.min(dim=0))
+                    (inputs.pos - inputs.pos.min(dim=0).values)
+                    / (
+                        inputs.pos.max(dim=0).values
+                        - inputs.pos.min(dim=0).values
+                    )
                     - 0.5
                 )
             elif self.hparams.pos_normalize is not False:
