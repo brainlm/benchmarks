@@ -355,7 +355,7 @@ def prepare_dataset_iterators(hparams):
 
     data_iterator = DataIterator(
         datasets=hparams["datasets"],
-        sample_rate=hparams["sample_rate"],
+        resample=hparams["sample_rate"],
         fmin=hparams["fmin"],
         fmax=hparams["fmax"],
         tmin=hparams["tmin"],
