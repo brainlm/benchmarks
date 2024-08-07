@@ -120,16 +120,16 @@ graph_augment: !new:torch.nn.Sequential
     sigma: !ref <position_noise_sigma>
   - !new:utils.graph_iterators.NodeDrop
     choose_k: 17
-# augment: !new:speechbrain.augment.augmenter.Augmenter
-#   parallel_augment: True
-#   concat_original: True
-#   parallel_augment_fixed_bs: True
-#   repeat_augment: !ref <repeat_augment>
-#   shuffle_augmentations: True
-#   min_augmentations: 4
-#   max_augmentations: 4
-#   augmentations:
-#     [!ref <cutcat>, !ref <rand_amp>, !ref <time_shift>, !ref <add_noise_white>]
+augment: !new:speechbrain.augment.augmenter.Augmenter
+  parallel_augment: True
+  concat_original: True
+  parallel_augment_fixed_bs: True
+  repeat_augment: !ref <repeat_augment>
+  shuffle_augmentations: True
+  min_augmentations: 4
+  max_augmentations: 4
+  augmentations:
+    [!ref <cutcat>, !ref <rand_amp>, !ref <time_shift>, !ref <add_noise_white>]
 
 # DATA NORMALIZATION
 dims_to_normalize: 1 # 1 (time) or 2 (EEG channels)

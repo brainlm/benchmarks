@@ -48,10 +48,11 @@ class MOABBBrain(sb.Brain):
 
         # Perform data augmentation
         if stage == sb.Stage.TRAIN and hasattr(self.hparams, "augment"):
-            inputs.x, _ = self.hparams.augment(
-                inputs.x.transpose(0, 1),
+            aug, _ = self.hparams.augment(
+                inputs.x.unsqueeze(-1),
                 lengths=torch.ones(inputs.x.shape[0], device=self.device),
             )
+            inputs.x = aug.squeeze(-1)
 
         if hasattr(self.hparams, "pos_normalize"):
             if self.hparams.pos_normalize is True:
