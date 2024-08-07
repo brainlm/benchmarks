@@ -30,12 +30,11 @@ class node_wise(nn.Module):
 
 
 class SpatialFocus(nn.Module):
-    def __init__(self, projection_dim, position_dim=3, tau=1.0, sigma=0.0):
+    def __init__(self, projection_dim, position_dim=3, tau=1.0):
         super().__init__()
         self.projection_dim = projection_dim
         self.position_dim = position_dim
         self.tau = tau
-        self.sigma = sigma
 
         self.similarity_module = nn.Sequential(
             nn.Linear(position_dim, projection_dim),
@@ -48,17 +47,14 @@ class SpatialFocus(nn.Module):
         positions = batch.pos
         x = batch.x
 
-        if self.training and self.sigma > 0:
-            positions = positions + torch.randn_like(positions) * self.sigma
-        weights = self.similarity_module(positions)
+        weights = self.similarity_module(positions).div_(self.tau)
         weights = (
-            torch_geometric.utils.softmax(weights / self.tau, index=batch.batch)
-            .unsqueeze(1)
-            .unsqueeze(-1)
+            torch_geometric.utils.softmax(weights, index=batch.batch)
+            .view(weights.shape[0], 1, weights.shape[1], 1)
         )
-        x_weighted = x.unsqueeze(-2) * weights
+        x = x.unsqueeze(-2) * weights
         x = torch_geometric.utils.scatter(
-            x_weighted,
+            x,
             batch.batch,
             dim=0,
             dim_size=batch.batch_size,
@@ -166,7 +162,9 @@ class SpatialEEGNet(nn.Module):
         self.temporal_frontend.add_module(
             "bnorm_0",
             sb.nnet.normalization.BatchNorm2d(
-                input_size=cnn_temporal_kernels, momentum=0.01, affine=True,
+                input_size=cnn_temporal_kernels,
+                momentum=0.01,
+                affine=True,
             ),
         )
         self.spatial_focus = spatial_focus
@@ -191,7 +189,9 @@ class SpatialEEGNet(nn.Module):
         self.conv_module.add_module(
             "bnorm_1",
             sb.nnet.normalization.BatchNorm2d(
-                input_size=cnn_spatial_kernels, momentum=0.01, affine=True,
+                input_size=cnn_spatial_kernels,
+                momentum=0.01,
+                affine=True,
             ),
         )
         self.conv_module.add_module("act_1", activation)
@@ -263,7 +263,8 @@ class SpatialEEGNet(nn.Module):
         # DENSE MODULE
         self.dense_module = nn.Sequential()
         self.dense_module.add_module(
-            "flatten", nn.Flatten(),
+            "flatten",
+            nn.Flatten(),
         )
         self.dense_module.add_module(
             "fc_out",

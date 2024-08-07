@@ -288,8 +288,10 @@ class LeaveOneSessionOut(BaseGraphData):
 
     def split_test_data(self, data):
         other, test = [], []
+        sessions = set()
         for d in data:
-            if d.session in self.target_sessions:
+            sessions.add(d.session)
+            if list(sessions).index(d.session) in self.target_sessions:
                 test.append(d)
             else:
                 other.append(d)

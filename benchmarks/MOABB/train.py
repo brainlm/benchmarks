@@ -353,7 +353,7 @@ def prepare_dataset_iterators(hparams):
         raise ValueError(
             "Unknown data_iterator_name: %s" % hparams["data_iterator_name"]
         )
-
+        
     data_iterator = DataIterator(
         datasets=hparams["datasets"],
         resample=hparams["sample_rate"],
@@ -363,7 +363,7 @@ def prepare_dataset_iterators(hparams):
         tmax=hparams["tmax"],
         events=hparams["events_to_load"],
         valid_ratio=hparams["valid_ratio"],
-        target_subjects=hparams["target_subject_idx"],
+        target_subjects=hparams["target_subject_idx"] + 1,
         target_sessions=hparams["target_session_idx"],
     )
 
@@ -382,7 +382,7 @@ def prepare_dataset_iterators(hparams):
     )
     if data_iterator.target_sessions is not None:
         tail_path = os.path.join(
-            tail_path, "_".join(data_iterator.target_sessions)
+            tail_path, "_".join(map(str, data_iterator.target_sessions))
         )
     return tail_path, datasets
 
