@@ -20,7 +20,6 @@ from typing import Iterable
 import numpy as np
 import pandas as pd
 import scipy
-from scipy.stats import rv_discrete
 import torch
 from mne import EpochsArray
 from mne.channels import find_ch_adjacency
@@ -158,8 +157,8 @@ class BaseGraphData(abc.ABC):
             target_subjects = [target_subjects]
         if not isinstance(target_sessions, (list, tuple)):
             target_sessions = [target_sessions]
-        self.target_subjects = target_subjects
-        self.target_sessions = target_sessions
+        self.target_subjects = list(map(int, target_subjects))
+        self.target_sessions = list(map(int, target_sessions))
         self.data = ChainDataset(self.make_geometric_data(paradigm_kwargs))
         self.valid_ratio = valid_ratio
 
