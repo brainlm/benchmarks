@@ -225,6 +225,7 @@ for i in $(seq 0 1 $(( nruns - 1 ))); do
 
   elif [ "$train_mode" = "leave-one-session-out" ]; then
     # Loop over sessions
+    set -e
     for j in $(seq 0 1 $(( nsess - 1 ))); do
       run_experiment $j $output_folder_exp
     done

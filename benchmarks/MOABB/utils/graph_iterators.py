@@ -95,7 +95,10 @@ class AsGeometricData(IterableDataset):
     edge_list: np.ndarray
 
     def __init__(
-        self, dataset, target_subjects=None, **paradigm_kwargs,
+        self,
+        dataset,
+        target_subjects=None,
+        **paradigm_kwargs,
     ):
         self.dataset = dataset
         self.paradigm = _make_paradigm(dataset, **paradigm_kwargs)
@@ -159,16 +162,15 @@ class BaseGraphData(abc.ABC):
             target_sessions = [target_sessions]
         self.target_subjects = list(map(int, target_subjects))
         self.target_sessions = list(map(int, target_sessions))
+        self.target_session_names = None
         self.data = ChainDataset(self.make_geometric_data(paradigm_kwargs))
         self.valid_ratio = valid_ratio
 
     @abc.abstractmethod
-    def make_geometric_data(self, paradigm_kwargs):
-        ...
+    def make_geometric_data(self, paradigm_kwargs): ...
 
     @abc.abstractmethod
-    def split_test_data(self, data):
-        ...
+    def split_test_data(self, data): ...
 
     def data_statistics(self, data):
         min_C = np.Inf
@@ -213,6 +215,10 @@ class BaseGraphData(abc.ABC):
         min_C, max_C, min_T, max_T = self.data_statistics(data)
         data = self.pad_data(data, max_T)
         train_valid_data, test_data = self.split_test_data(data)
+        assert (
+            len(train_valid_data) > 0
+        ), "Invalid Split: No Training & Validation Data"
+        assert len(test_data) > 0, "Invalid Split: No Test Data"
 
         random.shuffle(train_valid_data)
         train_valid_data = Batch.from_data_list(train_valid_data)
@@ -288,19 +294,27 @@ class LeaveOneSessionOut(BaseGraphData):
     def split_test_data(self, data):
         other, test = [], []
         sessions = set()
+        target_sessions = set()
         for d in data:
             sessions.add(d.session)
-            if list(sessions).index(d.session) in self.target_sessions:
+            sess_idx = sorted(sessions).index(d.session)
+            if sess_idx in self.target_sessions:
+                target_sessions.add(d.session)
                 test.append(d)
             else:
                 other.append(d)
+
+        self.target_session_names = target_sessions
         return other, test
 
 
 class LeaveOneSubjectOut(BaseGraphData):
     def make_geometric_data(self, paradigm_kwargs):
         return [
-            AsGeometricData(dataset, **paradigm_kwargs,)
+            AsGeometricData(
+                dataset,
+                **paradigm_kwargs,
+            )
             for dataset in self.datasets
         ]
 

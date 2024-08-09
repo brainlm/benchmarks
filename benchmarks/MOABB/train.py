@@ -380,9 +380,9 @@ def prepare_dataset_iterators(hparams):
             for subject in data_iterator.target_subjects
         ),
     )
-    if data_iterator.target_sessions is not None:
+    if data_iterator.target_session_names is not None:
         tail_path = os.path.join(
-            tail_path, "_".join(map(str, data_iterator.target_sessions))
+            tail_path, "_".join(map(str, data_iterator.target_session_names))
         )
     return tail_path, datasets
 
