@@ -154,9 +154,14 @@ dmypy.json
 # Results folders
 **/results/
 **/data
+**/wandb
 
 # Log folders
 **/log/
 
 # Mac OS
 .DS_Store
+
+EEGNet_BNCI2014001_*
+ShallowConvNet_BNCI2014001_hopt*
+finetune_*
