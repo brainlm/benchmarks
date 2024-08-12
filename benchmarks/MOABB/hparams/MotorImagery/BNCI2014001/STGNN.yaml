@@ -51,7 +51,7 @@ metrics:
 n_train_examples: 100  # it will be replaced in the train script
 # checkpoints to average
 avg_models: 10 # @orion_step1: --avg_models~"uniform(1, 15,discrete=True)"
-number_of_epochs: 200 # @orion_step1: --number_of_epochs~"uniform(250, 1000, discrete=True)"
+number_of_epochs: 100 
 lr: 0.001 # @orion_step1: --lr~"choices([0.01, 0.005, 0.001, 0.0005, 0.0001])"
 # Learning rate scheduling (cyclic learning rate is used here)
 max_lr: !ref <lr> # Upper bound of the cycle (max value of the lr)
@@ -89,22 +89,30 @@ sweep_run: False # to indicate if you are running sweeps or normal wandb runs
 
 # MODEL
 input_shape: [null, !ref <T>, !ref <C>, null]
-cnn_kernels: [64, 128, 256]
-cnn_kernelsize: [61, 51, 33]
-cnn_pool: [4, 4]
+cnn_kernels_1: 64 # @orion_step1: --cnn_kernels_1~"uniform(64, 128, discrete=True)"
+cnn_kernels_2: 128 # @orion_step1: --cnn_kernels_2~"uniform(128, 256, discrete=True)"
+cnn_kernels_3: 256 # @orion_step1: --cnn_kernels_3~"uniform(256, 512, discrete=True)"
+cnn_kernelsize_1: 61 # @orion_step1: --cnn_kernelsize_1~"uniform(51, 71, discrete=True)"
+cnn_kernelsize_2: 51 # @orion_step1: --cnn_kernelsize_2~"uniform(33, 51, discrete=True)"
+cnn_kernelsize_3: 33 # @orion_step1: --cnn_kernelsize_3~"uniform(11, 33, discrete=True)"
+cnn_pool_1: 4 # @orion_step1: --cnn_pool_1~"uniform(4, 7, discrete=True)"
+cnn_pool_2: 4 # @orion_step1: --cnn_pool_2~"uniform(4, 7, discrete=True)"
 cnn_pool_type: 'avg'
 graph_pool_type: "attention"
-dropout: 0.2
+dropout: 0.2 # @orion_step1: --dropout~"uniform(0, 0.5, precision=1)"
 activation_type: 'elu'
-embed_dim: 64
 model: !new:models.STGNN.STGNN
     input_shape: !ref <input_shape>
-    cnn_kernels: !ref <cnn_kernels>
-    cnn_kernelsize: !ref <cnn_kernelsize>
-    cnn_pool: !ref <cnn_pool>
+    cnn_kernels_1: !ref <cnn_kernels_1>
+    cnn_kernels_2: !ref <cnn_kernels_2>
+    cnn_kernels_3: !ref <cnn_kernels_3>
+    cnn_kernelsize_1: !ref <cnn_kernelsize_1>
+    cnn_kernelsize_2: !ref <cnn_kernelsize_2>
+    cnn_kernelsize_3: !ref <cnn_kernelsize_3>
+    cnn_pool_1: !ref <cnn_pool_1>
+    cnn_pool_2: !ref <cnn_pool_2>
     cnn_pool_type: !ref <cnn_pool_type>
     graph_pool_type: !ref <graph_pool_type>
     activation_type: !ref <activation_type>
-    embed_dim: !ref <embed_dim>
     dropout: !ref <dropout>
     dense_n_neurons: !ref <n_classes>

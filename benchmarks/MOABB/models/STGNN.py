@@ -56,9 +56,14 @@ class STGNN(torch.nn.Module):
     def __init__(
         self,
         input_shape,  # (1, T, C, 1)
-        cnn_kernels,
-        cnn_kernelsize,
-        cnn_pool,
+        cnn_kernels_1,
+        cnn_kernels_2,
+        cnn_kernels_3,
+        cnn_kernelsize_1,
+        cnn_kernelsize_2,
+        cnn_kernelsize_3,
+        cnn_pool_1,
+        cnn_pool_2,
         cnn_pool_type="avg",
         graph_pool_type="avg",
         dropout=0.5,
@@ -81,30 +86,31 @@ class STGNN(torch.nn.Module):
 
         # Temporal convolutional module
         self.temporal_frontend = nn.Sequential(
-            nn.Conv2d(1, cnn_kernels[0], kernel_size=(cnn_kernelsize[0], 1), padding='same'),
-            nn.BatchNorm2d(cnn_kernels[0], momentum=0.01, affine=True),
+            nn.Conv2d(1, cnn_kernels_1, kernel_size=(cnn_kernelsize_1, 1), padding='same'),
+            nn.BatchNorm2d(cnn_kernels_1, momentum=0.01, affine=True),
             self.activation,
         )
-        # position encoder
-        self.pos_encoder = PositionEncoder(in_dim=3, out_dim=embed_dim, activation=self.activation)
+
+        # # position encoder
+        # self.pos_encoder = PositionEncoder(in_dim=3, out_dim=cnn_kernels_1, activation=self.activation)
 
         # Spatial Graph convolution
-        self.spatial_gnn = GnnModel(in_features=cnn_kernels[0], out_features=embed_dim, activation=self.activation)
+        self.spatial_gnn = GnnModel(in_features=cnn_kernels_1, out_features=cnn_kernels_1, activation=self.activation)
         if self.graph_pool_type == 'avg':
             self.global_pool = global_mean_pool
         elif self.graph_pool_type == 'attention':
-            self.global_pool = AttentionPool(position_dim=3, projection_dim=embed_dim, activation=self.activation)
+            self.global_pool = AttentionPool(position_dim=3, projection_dim=cnn_kernels_1, activation=self.activation)
 
         self.conv_module = nn.Sequential(
-            nn.Conv2d(cnn_kernels[0], cnn_kernels[1], kernel_size=(cnn_kernelsize[1], 1)),
-            nn.BatchNorm2d(cnn_kernels[1], momentum=0.01, affine=True),
-            nn.AvgPool2d(kernel_size=(cnn_pool[0], 1), stride=(cnn_pool[0], 1)) if cnn_pool_type == "avg" else nn.MaxPool2d(kernel_size=(cnn_pool[0], 1), stride=(cnn_pool[0], 1)),
+            nn.Conv2d(cnn_kernels_1, cnn_kernels_2, kernel_size=(cnn_kernelsize_2, 1)),
+            nn.BatchNorm2d(cnn_kernels_2, momentum=0.01, affine=True),
+            nn.AvgPool2d(kernel_size=(cnn_pool_1, 1), stride=(cnn_pool_1, 1)) if cnn_pool_type == "avg" else nn.MaxPool2d(kernel_size=(cnn_pool_1, 1), stride=(cnn_pool_1, 1)),
             self.activation,
             nn.Dropout(p=dropout),
 
-            nn.Conv2d(cnn_kernels[1], cnn_kernels[2], kernel_size=(cnn_kernelsize[2], 1)),
-            nn.BatchNorm2d(cnn_kernels[2], momentum=0.01, affine=True),
-            nn.AvgPool2d(kernel_size=(cnn_pool[1], 1), stride=(cnn_pool[1], 1)) if cnn_pool_type == "avg" else nn.MaxPool2d(kernel_size=(cnn_pool[1], 1), stride=(cnn_pool[1], 1)),
+            nn.Conv2d(cnn_kernels_2, cnn_kernels_3, kernel_size=(cnn_kernelsize_3, 1)),
+            nn.BatchNorm2d(cnn_kernels_3, momentum=0.01, affine=True),
+            nn.AvgPool2d(kernel_size=(cnn_pool_2, 1), stride=(cnn_pool_2, 1)) if cnn_pool_type == "avg" else nn.MaxPool2d(kernel_size=(cnn_pool_2, 1), stride=(cnn_pool_2, 1)),
             self.activation,
             nn.Dropout(p=dropout),
         )
@@ -139,17 +145,16 @@ class STGNN(torch.nn.Module):
 
         # Apply temporal convolutions
         x = self.temporal_frontend(x).squeeze()  # (N, 1, T, 1) --> (N, D, T')
-        
-        # Add positional encoding
-        pos_encoding = self.pos_encoder(graph.pos).unsqueeze(-1)  # (N, 3) ---> (N, D, 1)
-        x = x + pos_encoding  # (N, D, T')
+
+        # # Add positional encoding
+        # pos_encoding = self.pos_encoder(graph.pos).unsqueeze(-1)  # (N, 3) ---> (N, D, 1)
+        # x = x + pos_encoding  # (N, D, T')
 
         # Apply GNN message passing on every T step
         x = self.spatial_gnn(x=x, edge_index=graph.edge_index)  # (N, T', D')
         
         # Graph level pooling
         x = self.graph_pooler(x, graph.batch, positions=graph.pos)  # (B, D', T', 1)
-        
         # Apply spatio-temporal conv module
         x = self.conv_module(x)
         
