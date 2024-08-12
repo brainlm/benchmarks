@@ -51,7 +51,7 @@ metrics:
 n_train_examples: 100  # it will be replaced in the train script
 # checkpoints to average
 avg_models: 10 # @orion_step1: --avg_models~"uniform(1, 15,discrete=True)"
-number_of_epochs: 200 # @orion_step1: --number_of_epochs~"uniform(250, 1000, discrete=True)"
+number_of_epochs: 100 
 lr: 0.001 # @orion_step1: --lr~"choices([0.01, 0.005, 0.001, 0.0005, 0.0001])"
 # Learning rate scheduling (cyclic learning rate is used here)
 max_lr: !ref <lr> # Upper bound of the cycle (max value of the lr)
