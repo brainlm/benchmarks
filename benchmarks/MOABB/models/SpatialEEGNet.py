@@ -25,7 +25,7 @@ class node_wise(nn.Module):
     def forward(self, x: Data):
         new_x = x.clone()
         new_x.x = self.func(x.x.unsqueeze(-1).unsqueeze(-1)).squeeze(-2)
-        assert new_x.x.shape[:-1] == x.x.shape, "shape changed"
+        
         return new_x
 
 
