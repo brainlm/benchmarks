@@ -47,12 +47,19 @@ class MOABBBrain(sb.Brain):
         inputs = batch.to(self.device)
 
         # Perform data augmentation
-        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "augment"):
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "augment") and self.hparams.repeat_augment > 0:
+            # Force concat_original to be false, so we can manually concat the original
+            self.hparams.augment.concat_original = False
             aug, _ = self.hparams.augment(
                 inputs.x.unsqueeze(-1),
                 lengths=torch.ones(inputs.x.shape[0], device=self.device),
             )
-            inputs.x = aug.squeeze(-1)
+            aug = aug.squeeze(-1)
+            
+            assert aug.shape == inputs.x.shape, f"Shape changed during augmentation: {aug.shape} != {inputs.x.shape}"
+            inputs_aug = inputs.clone()
+            inputs_aug.x = aug.squeeze(-1)
+            inputs = inputs.concat(inputs_aug)
 
         if hasattr(self.hparams, "pos_normalize"):
             if self.hparams.pos_normalize is True:
