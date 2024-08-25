@@ -108,7 +108,12 @@ class AsGeometricData(IterableDataset):
 
     def load(self):
         self.X, self.Y, self.metadata = self.paradigm.get_data(
-            self.dataset, subjects=self.subjects, return_epochs=True
+            self.dataset,
+            subjects=self.subjects,
+            return_epochs=True,
+            cache_config=dict(
+                save_epochs=True,
+                use=True),
         )
 
         self.pos = list(
