@@ -54,6 +54,9 @@ def _make_paradigm(
         p300=paradigms.P300,
         ssvep=paradigms.SSVEP,
     )[dataset.paradigm]
+    
+    if dataset.paradigm == 'p300':
+        kwargs.pop('events')
 
     return Paradigm(
         resample=resample, fmin=fmin, fmax=fmax, tmin=tmin, tmax=tmax, **kwargs
