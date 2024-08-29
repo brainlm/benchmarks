@@ -162,7 +162,4 @@ dmypy.json
 # Mac OS
 .DS_Store
 
-EEGNet_BNCI2014001_*
-ShallowConvNet_BNCI2014001_hopt*
-STGNN_BNCI2014001_hopt*
-finetune_*
+STGNN_Lee2019*
