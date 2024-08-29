@@ -234,7 +234,7 @@ for i in $(seq 0 1 $(( nruns - 1 ))); do
   fi
 
   # Store the results
-  python SB_benchmarks/benchmarks/MOABB/utils/parse_results.py $output_folder_exp $metric_file $eval_metric | tee -a  $output_folder/$run_name\_results.txt
+  python utils/parse_results.py $output_folder_exp $metric_file $eval_metric | tee -a  $output_folder/$run_name\_results.txt
 
   # Changing Random seed
   seed=$((seed+1))
@@ -242,4 +242,4 @@ done
 
 
 echo 'Final Results (Performance Aggregation)'
-python SB_benchmarks/benchmarks/MOABB/utils/aggregate_results.py $output_folder $eval_metric | tee -a  $output_folder/aggregated_performance.txt
+python utils/aggregate_results.py $output_folder $eval_metric | tee -a  $output_folder/aggregated_performance.txt
