@@ -54,9 +54,9 @@ def _make_paradigm(
         p300=paradigms.P300,
         ssvep=paradigms.SSVEP,
     )[dataset.paradigm]
-    
-    if dataset.paradigm == 'p300':
-        kwargs.pop('events')
+
+    if dataset.paradigm == "p300":
+        kwargs.pop("events")
 
     return Paradigm(
         resample=resample, fmin=fmin, fmax=fmax, tmin=tmin, tmax=tmax, **kwargs
@@ -114,16 +114,24 @@ class AsGeometricData(IterableDataset):
             self.dataset,
             subjects=self.subjects,
             return_epochs=True,
-            cache_config=dict(
-                save_epochs=True,
-                use=True),
+            cache_config=dict(save_epochs=True, use=True),
         )
 
-        self.pos = list(
-            self.X.info.get_montage().get_positions()["ch_pos"].values()
-        )
-        self.pos = torch.tensor(self.pos).float().contiguous()
+        # NOTE: Assumes a standard headsphere with offset 0,0,40mm and radius 90mm
+        offset = torch.tensor([[0, 0, 0.04]])  # meters
+        radius = 0.09  # meters
 
+        self.pos = (
+            torch.tensor(
+                list(
+                    self.X.info.get_montage().get_positions()["ch_pos"].values()
+                )
+            )
+            .sub_(offset)
+            .div_(radius)
+            .float()
+            .contiguous()
+        )
         adjacency_mtx, _ = find_ch_adjacency(self.X.info, ch_type="eeg")
         self.adjacency_mtx = scipy.sparse.csr_matrix.toarray(
             adjacency_mtx

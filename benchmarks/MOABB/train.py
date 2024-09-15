@@ -61,19 +61,6 @@ class MOABBBrain(sb.Brain):
 
             inputs.x = aug.squeeze(-1)
 
-        if hasattr(self.hparams, "pos_normalize"):
-            if self.hparams.pos_normalize is True:
-                inputs.pos = 2 * (
-                    (inputs.pos - inputs.pos.min(dim=0).values)
-                    / (
-                        inputs.pos.max(dim=0).values
-                        - inputs.pos.min(dim=0).values
-                    )
-                    - 0.5
-                )
-            elif self.hparams.pos_normalize is not False:
-                inputs.pos = self.hparams.pos_normalize(inputs.pos)
-
         if stage == sb.Stage.TRAIN and hasattr(self.hparams, "graph_augment"):
             inputs = self.hparams.graph_augment(inputs)
 
@@ -313,7 +300,6 @@ def run_experiment(hparams, run_opts, datasets):
         run_opts=run_opts,
         checkpointer=checkpointer,
     )
-    return brain
     # training
     brain.fit(
         epoch_counter=hparams["epoch_counter"],
