@@ -47,13 +47,17 @@ class MOABBBrain(sb.Brain):
         inputs = batch.to(self.device)
 
         # Perform data augmentation
-        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "augment") and self.hparams.repeat_augment > 0:
-            # Force concat_original to be false, so we can manually concat the original
+        if (
+            stage == sb.Stage.TRAIN
+            and hasattr(self.hparams, "augment")
+            and self.hparams.repeat_augment > 0
+        ):
             aug, _ = self.hparams.augment(
                 inputs.x.unsqueeze(-1),
                 lengths=torch.ones(inputs.x.shape[0], device=self.device),
             )
-            inputs = inputs.concat(inputs)
+            if self.hparams.augment.concat_original:
+                inputs = inputs.concat(inputs)
 
             inputs.x = aug.squeeze(-1)
 
@@ -103,7 +107,9 @@ class MOABBBrain(sb.Brain):
                 self.hparams.lr_annealing.on_batch_end(self.optimizer)
         return loss
 
-    def on_fit_start(self,):
+    def on_fit_start(
+        self,
+    ):
         """Gets called at the beginning of ``fit()``"""
         self.init_model(self.hparams.model)
         self.init_optimizers()
@@ -244,14 +250,18 @@ class MOABBBrain(sb.Brain):
             max_key=max_key, min_key=min_key
         )
         ckpt = sb.utils.checkpoints.average_checkpoints(
-            ckpts, recoverable_name="model",
+            ckpts,
+            recoverable_name="model",
         )
 
         self.hparams.model.load_state_dict(ckpt, strict=True)
         self.hparams.model.eval()
 
     def check_if_best(
-        self, last_eval_stats, best_eval_stats, keys,
+        self,
+        last_eval_stats,
+        best_eval_stats,
+        keys,
     ):
         """Checks if the current model is the best according at least to
         one of the monitored metrics."""
@@ -357,7 +367,7 @@ def prepare_dataset_iterators(hparams):
         raise ValueError(
             "Unknown data_iterator_name: %s" % hparams["data_iterator_name"]
         )
-        
+
     data_iterator = DataIterator(
         datasets=hparams["datasets"],
         resample=hparams["sample_rate"],
