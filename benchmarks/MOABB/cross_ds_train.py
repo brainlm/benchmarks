@@ -1,3 +1,6 @@
+import json
+import random
+
 import math
 import pathlib as pl
 import warnings
@@ -23,6 +26,9 @@ from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
 from torch.optim.swa_utils import AveragedModel, SWALR
 import logging
+from torch.utils.tensorboard import (
+    SummaryWriter,
+)  # Added import for TensorBoard
 
 # ==========================
 # Configuration and Constants
@@ -31,7 +37,8 @@ import logging
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 PREPROCESSING_PARAMS = {
-    "fmin": 0,
+    "fmin": 0.1,
+    "fmax": 50.0,
     "resample": 128,
 }
 
@@ -359,6 +366,31 @@ def evaluate_hparams(
     swa_start = 1 + int(0.75 * number_of_epochs)
     logger.info(f"SWA will start after epoch {swa_start}")
 
+    # Initialize TensorBoard SummaryWriter
+    tensorboard_log_dir = checkpoint / "tensorboard"
+    writer = SummaryWriter(log_dir=str(tensorboard_log_dir))
+    logger.info(
+        f"Initialized TensorBoard SummaryWriter at {tensorboard_log_dir}"
+    )
+
+    # Optionally, log hyperparameters
+    writer.add_hparams(
+        {
+            "learning_rate": learning_rate,
+            "number_of_epochs": number_of_epochs,
+            "spatial_focus_projection_dim": spatial_focus_projection_dim,
+            "spatial_focus_temperature": spatial_focus_temperature,
+            "cnn_temporal_kernels": cnn_temporal_kernels,
+            "cnn_temporal_kernelsize": cnn_temporal_kernelsize,
+            "cnn_spatial_depth_multiplier": cnn_spatial_depth_multiplier,
+            "cnn_septemporal_point_kernels_ratio_": cnn_septemporal_point_kernels_ratio_,
+            "cnn_septemporal_kernelsize_": cnn_septemporal_kernelsize_,
+            "cnn_septemporal_pool": cnn_septemporal_pool,
+            "dropout": dropout,
+        },
+        {},
+    )
+
     # Training Loop
     model.train()
     logger.info("Starting training...")
@@ -384,6 +416,9 @@ def evaluate_hparams(
         logger.info(
             f"Epoch {epoch}/{number_of_epochs} - Training Loss: {avg_loss:.4f}"
         )
+
+        # Log training loss to TensorBoard
+        writer.add_scalar("Train/Loss", avg_loss, epoch)
 
         # Update schedulers
         if epoch >= swa_start:
@@ -439,6 +474,31 @@ def evaluate_hparams(
     logger.info(f"Validation F1 Score (Macro): {f1:.4f}")
     logger.info(f"Validation Confusion Matrix: {cm}")
 
+    # Log validation metrics to TensorBoard
+    writer.add_scalar("Validation/Balanced_Accuracy", acc)
+    writer.add_scalar("Validation/F1_Score_Macro", f1)
+    # Logging confusion matrix as a figure
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+
+    plt.figure(figsize=(8, 6))
+    sns.heatmap(
+        metrics.confusion_matrix(y_true_all, y_pred_all),
+        annot=True,
+        fmt="d",
+        cmap="Blues",
+    )
+    plt.xlabel("Predicted")
+    plt.ylabel("True")
+    plt.title("Confusion Matrix")
+    cm_figure = plt.gcf()
+    writer.add_figure("Validation/Confusion_Matrix", cm_figure)
+    plt.close()
+
+    # Close the TensorBoard writer
+    writer.close()
+    logger.info(f"Closed TensorBoard SummaryWriter at {tensorboard_log_dir}")
+
     return [
         {"name": "err", "type": "objective", "value": 1 - acc},
         {"name": "acc", "type": "statistic", "value": acc},
@@ -487,6 +547,11 @@ def run_hyperparameter_search(experiment: ExperimentClient):
             if stats:
                 logger.info("Validation Results:")
                 pprint(stats)
+                # Log trial parameters and results to a JSON file
+                with open(checkpoint / "results.json", "w") as f:
+                    json.dump(
+                        {"params": trial.params, "metrics": stats}, f, indent=4
+                    )
                 experiment.observe(trial, stats)
         except Exception as e:
             logger.error(f"Error during trial {trial_idx + 1}: {e}")
@@ -497,9 +562,24 @@ def run_hyperparameter_search(experiment: ExperimentClient):
 # Main Execution Flow
 # ==========================
 
+
+def set_seed(seed: int = 42):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+
 if __name__ == "__main__":
+    # Call this at the beginning of your main execution
+    set_seed(42)
+
     try:
         # Prepare Datasets
+        logger.info(f"Preparing datasets...")
         source_data = prepare_datasets()
         train_dataset, valid_dataset = train_valid_split(source_data)
         logger.info(
