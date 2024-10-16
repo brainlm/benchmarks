@@ -25,7 +25,7 @@ class node_wise(nn.Module):
     def forward(self, x: Data):
         new_x = x.clone()
         new_x.x = self.func(x.x.unsqueeze(-1).unsqueeze(-1)).squeeze(-2)
-        
+
         return new_x
 
 
@@ -48,10 +48,9 @@ class SpatialFocus(nn.Module):
         x = batch.x
 
         weights = self.similarity_module(positions).div_(self.tau)
-        weights = (
-            torch_geometric.utils.softmax(weights, index=batch.batch)
-            .view(weights.shape[0], 1, weights.shape[1], 1)
-        )
+        weights = torch_geometric.utils.softmax(
+            weights, index=batch.batch
+        ).view(weights.shape[0], 1, weights.shape[1], 1)
         x = x.unsqueeze(-2) * weights
         x = torch_geometric.utils.scatter(
             x,
@@ -109,7 +108,8 @@ class SpatialEEGNet(nn.Module):
     def __init__(
         self,
         spatial_focus,
-        input_shape=None,  # (1, T, C, 1)
+        C,
+        T,
         cnn_temporal_kernels=8,
         cnn_temporal_kernelsize=(33, 1),
         cnn_spatial_depth_multiplier=2,
@@ -126,8 +126,6 @@ class SpatialEEGNet(nn.Module):
         activation_type="elu",
     ):
         super().__init__()
-        if input_shape is None:
-            raise ValueError("Must specify input_shape")
         if activation_type == "gelu":
             activation = nn.GELU()
         elif activation_type == "elu":
@@ -141,8 +139,6 @@ class SpatialEEGNet(nn.Module):
         else:
             raise ValueError("Wrong hidden activation function")
         self.default_sf = 128  # sampling rate of the original publication (Hz)
-        # T = input_shape[1]
-        C = input_shape[2]
 
         # CONVOLUTIONAL MODULE
         self.temporal_frontend = nn.Sequential()
@@ -259,7 +255,7 @@ class SpatialEEGNet(nn.Module):
         self.conv_module.add_module("dropout_3", nn.Dropout(p=dropout))
 
         # Shape of intermediate feature maps
-        dense_input_size = self._num_flat_features(input_shape)
+        dense_input_size = self._num_flat_features(T, C)
         # DENSE MODULE
         self.dense_module = nn.Sequential()
         self.dense_module.add_module(
@@ -276,7 +272,7 @@ class SpatialEEGNet(nn.Module):
         )
         self.dense_module.add_module("act_out", nn.LogSoftmax(dim=1))
 
-    def _num_flat_features(self, input_shape):
+    def _num_flat_features(self, T, C):
         """Returns the number of flattened features from a tensor.
 
         Arguments
@@ -285,9 +281,15 @@ class SpatialEEGNet(nn.Module):
             Input feature map.
         """
         x = self.temporal_frontend(
-            torch.ones((1,) + tuple(input_shape[1:-1]) + (1,))
+            torch.ones(
+                (
+                    1,
+                    T,
+                    C,
+                    1,
+                )
+            )
         )
-        # x = self.spatial_focus(x)
         x = self.conv_module(x)
         size = x.size()[1:]  # all dimensions except the batch dimension
         num_features = 1

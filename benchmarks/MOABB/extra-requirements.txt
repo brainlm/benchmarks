@@ -1,7 +1,6 @@
 mne
 moabb
-orion
-orion[profet]
+orion[profet, bohb]
 scikit-learn
 torch_geometric
 torchinfo
