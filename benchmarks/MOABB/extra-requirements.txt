@@ -1,6 +1,7 @@
 mne
 moabb
 orion[profet, bohb]
+ConfigSpace==0.7.1
 scikit-learn
 torch_geometric
 torchinfo

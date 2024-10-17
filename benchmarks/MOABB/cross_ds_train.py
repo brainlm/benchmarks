@@ -46,7 +46,8 @@ CACHE_CONFIG = {"save_epochs": True, "use": True}
 
 PAD_TIME = 513
 N_CLASSES = 3
-BATCH_SIZE = 16
+BATCH_SIZE = 8
+GRADIENT_ACCUMULATION = 4 # Effective Batchsize = 32
 MAX_TRIALS = 50
 SEARCH_SPACE = {
     "learning_rate": "choices([0.01, 0.005, 0.001, 0.0005, 0.0001])",
@@ -398,18 +399,19 @@ def evaluate_hparams(
         running_loss = 0.0
         num_batches = 0
 
-        for batch in train_loader:
+        optimizer.zero_grad()
+        for idx, batch in enumerate(train_loader):
             # Forward pass
             output = model(batch)
             loss = nll_loss(output, batch.y, weight=class_weights)
-
-            # Backward pass and optimization
-            optimizer.zero_grad()
             loss.backward()
-            optimizer.step()
 
             running_loss += loss.item()
             num_batches += 1
+            if idx % GRADIENT_ACCUMULATION == GRADIENT_ACCUMULATION - 1:
+                # Backward pass and optimization
+                optimizer.step()
+                optimizer.zero_grad()
 
         # Calculate average loss for the epoch
         avg_loss = running_loss / num_batches
@@ -600,3 +602,5 @@ if __name__ == "__main__":
 
     except Exception as main_e:
         logger.exception(f"An error occurred during the execution: {main_e}")
+
+    
