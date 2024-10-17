@@ -6,7 +6,7 @@ import pathlib as pl
 import warnings
 from contextlib import redirect_stdout
 from functools import cached_property
-from pprint import pprint
+from pprint import pformat
 from typing import Any, Optional, Sequence, Dict, List
 
 import numpy as np
@@ -33,7 +33,7 @@ from torch.utils.tensorboard import (
 # ==========================
 # Configuration and Constants
 # ==========================
-
+SEED = 1234
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 PREPROCESSING_PARAMS = {
@@ -47,8 +47,8 @@ CACHE_CONFIG = {"save_epochs": True, "use": True}
 PAD_TIME = 513
 N_CLASSES = 3
 BATCH_SIZE = 8
-GRADIENT_ACCUMULATION = 4 # Effective Batchsize = 32
-MAX_TRIALS = 50
+GRADIENT_ACCUMULATION = 4  # Effective Batchsize = 32
+MAX_TRIALS = 100
 SEARCH_SPACE = {
     "learning_rate": "choices([0.01, 0.005, 0.001, 0.0005, 0.0001])",
     "number_of_epochs": "fidelity(1, 120, base=4)",
@@ -321,6 +321,7 @@ def evaluate_hparams(
     cnn_septemporal_pool: int,
     dropout: float,
 ) -> List[Dict[str, Any]]:
+    set_seed(SEED)
     # Cast to integer
     number_of_epochs = int(round(number_of_epochs))
     logger.info(f"Number of Epochs (after casting): {number_of_epochs}")
@@ -517,19 +518,23 @@ def evaluate_hparams(
 def setup_hyperparameter_optimization() -> ExperimentClient:
     experiment = build_experiment(
         name=EXPERIMENT_NAME,
-        algorithm="BOHB",
+        algorithm=dict(
+            bohb=dict(seed=SEED),
+        ),
         space=SEARCH_SPACE,
         max_trials=MAX_TRIALS,
         working_dir=WORKING_DIR,
     )
+    experiment.algorithm.seed_rng(SEED)
+
     logger.info("Hyperparameter optimization experiment initialized.")
     return experiment
 
 
 def run_hyperparameter_search(experiment: ExperimentClient):
-    for trial_idx in range(experiment.max_trials):
-        if experiment.is_done:
-            break
+    trial_idx = 0
+    while not experiment.is_done:
+        trial_idx += 1
         trial = experiment.suggest()
         if trial is None and experiment.is_done:
             logger.info("All trials have been completed.")
@@ -538,9 +543,9 @@ def run_hyperparameter_search(experiment: ExperimentClient):
         checkpoint = pl.Path(experiment.working_dir) / str(trial.hash_params)
         checkpoint.mkdir(parents=True, exist_ok=True)
 
-        logger.info(f"Trial {trial_idx + 1}/{MAX_TRIALS}")
+        logger.info(f"Trial {trial_idx}/{MAX_TRIALS}")
         logger.info("Hyperparameters:")
-        pprint(trial.params)
+        pprint_log(trial.params)
 
         try:
             stats = evaluate_hparams(
@@ -548,17 +553,21 @@ def run_hyperparameter_search(experiment: ExperimentClient):
             )
             if stats:
                 logger.info("Validation Results:")
-                pprint(stats)
+                pprint_log(stats)
                 # Log trial parameters and results to a JSON file
                 with open(checkpoint / "results.json", "w") as f:
                     json.dump(
                         {"params": trial.params, "metrics": stats}, f, indent=4
                     )
                 experiment.observe(trial, stats)
-        except Exception as e:
+        except torch.cuda.OutOfMemoryError as e:
             logger.error(f"Error during trial {trial_idx + 1}: {e}")
-            experiment.release(trial)
-
+            experiment.observe(
+                trial,
+                [
+                    dict(name="err", type="objective", value=1e10)
+                ],  # Report bad trial
+            )
 
 # ==========================
 # Main Execution Flow
@@ -575,10 +584,12 @@ def set_seed(seed: int = 42):
     torch.backends.cudnn.benchmark = False
 
 
-if __name__ == "__main__":
-    # Call this at the beginning of your main execution
-    set_seed(42)
+def pprint_log(obj, level=logging.INFO):
+    for line in pformat(obj).split("\n"):
+        logger.log(level, line)
 
+
+if __name__ == "__main__":
     try:
         # Prepare Datasets
         logger.info(f"Preparing datasets...")
@@ -602,5 +613,3 @@ if __name__ == "__main__":
 
     except Exception as main_e:
         logger.exception(f"An error occurred during the execution: {main_e}")
-
-    
