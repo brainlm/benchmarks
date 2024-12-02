@@ -25,6 +25,9 @@ from torchinfo import summary
 import speechbrain as sb
 import yaml
 
+import wandb
+import datetime
+import uuid
 
 class MOABBBrain(sb.Brain):
     def init_model(self, model):
@@ -83,6 +86,15 @@ class MOABBBrain(sb.Brain):
 
     def on_fit_start(self,):
         """Gets called at the beginning of ``fit()``"""
+        # Initialize wandb
+        run_name = f"{self.hparams.prefix_name}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        wandb.init(
+            project=self.hparams.project,
+            name=run_name,
+            mode=self.hparams.mode,
+            entity=self.hparams.entity,
+        )
+
         self.init_model(self.hparams.model)
         self.init_optimizers()
         in_shape = (
@@ -137,6 +149,14 @@ class MOABBBrain(sb.Brain):
                         train_stats={"loss": self.train_loss},
                         valid_stats=self.last_eval_stats,
                     )
+                # Log validation stats to wandb
+                wandb.log(
+                    {
+                        **self.last_eval_stats,
+                        "lr": old_lr,
+                        "train_loss": self.train_loss,
+                    }
+                )
 
                 if epoch == 1:
                     self.best_eval_stats = self.last_eval_stats
@@ -181,6 +201,8 @@ class MOABBBrain(sb.Brain):
                     )
 
             elif stage == sb.Stage.TEST:
+                # Log final test metrics to wandb
+                wandb.log({"test_loss": self.last_eval_stats['loss'], "test_acc": self.last_eval_stats['acc'], "test_f1": self.last_eval_stats['f1']})
                 self.hparams.train_logger.log_stats(
                     stats_meta={
                         "epoch loaded": self.hparams.epoch_counter.current
@@ -391,7 +413,17 @@ def load_hparams_and_dataset_iterators(hparams_file, run_opts, overrides):
     # loading hparams for the each training and evaluation processes
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
-    hparams["exp_dir"] = os.path.join(hparams["output_folder"], tail_path)
+
+    if hparams["sweep_run"]:
+        # Generate a random identifier
+        unique_output_folder = os.path.join(
+            hparams["output_folder"],
+            f"{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid.uuid4())}",
+            tail_path,
+        )
+        hparams["exp_dir"] = unique_output_folder
+    else:
+        hparams["exp_dir"] = os.path.join(hparams["output_folder"], tail_path)
 
     # creating experiment directory
     sb.create_experiment_directory(
